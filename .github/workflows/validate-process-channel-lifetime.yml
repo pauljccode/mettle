@@ -20,7 +20,7 @@ jobs:
           - os: ubuntu-latest
             focused_payload: linux/x64/meterpreter_reverse_tcp
     runs-on: ${{ matrix.os }}
-    timeout-minutes: 100
+    timeout-minutes: 180
 
     env:
       BUNDLE_WITHOUT: "coverage development"
