@@ -14,15 +14,18 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os:
-          - macos-15-intel
-          - ubuntu-latest
+        include:
+          - os: macos-15-intel
+            focused_payload: osx/x64/meterpreter_reverse_tcp
+          - os: ubuntu-latest
+            focused_payload: linux/x64/meterpreter_reverse_tcp
     runs-on: ${{ matrix.os }}
     timeout-minutes: 100
 
     env:
       BUNDLE_WITHOUT: "coverage development"
       FRAMEWORK_COMMIT: 5e598d5233bebecef2a44904a286769d83d31d12
+      FOCUSED_PAYLOAD: ${{ matrix.focused_payload }}
       HOST_RUNNER_IMAGE: ${{ matrix.os }}
       METTLE_COMMIT: 837ab20a708256e4b1d8cba6523324c899619130
       RAILS_ENV: test
@@ -114,8 +117,10 @@ jobs:
         run: |
           for iteration in {1..10}; do
             echo "Focused iteration ${iteration}/10"
-            bundle exec rspec spec/acceptance/meterpreter_spec.rb \
-              --example '"osx/x64/meterpreter_reverse_tcp" payload and passes the "post/test/cmd_exec" tests'
+            result=$(bundle exec rspec spec/acceptance/meterpreter_spec.rb \
+              --example "\"${FOCUSED_PAYLOAD}\" payload and passes the \"post/test/cmd_exec\" tests")
+            printf '%s\n' "$result"
+            grep -Fq '1 example, 0 failures' <<< "$result"
           done
 
       - name: Archive acceptance results
