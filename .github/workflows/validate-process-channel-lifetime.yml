@@ -127,5 +127,5 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: mettle-process-channel-lifetime-${{ github.run_attempt }}
+          name: mettle-process-channel-lifetime-${{ matrix.os }}-${{ github.run_attempt }}
           path: metasploit-framework/tmp/allure-raw-data
