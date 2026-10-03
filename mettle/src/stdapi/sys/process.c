@@ -263,6 +263,9 @@ ssize_t sys_process_write(struct channel *c, void *buf, size_t len)
 int sys_process_free(struct channel *c)
 {
 	struct process *proc = channel_get_ctx(c);
+	if (proc == NULL) {
+		return 0;
+	}
 	return process_kill(proc);
 }
 
@@ -275,13 +278,14 @@ static void process_channel_exit_cb(struct process *p, int exit_status, void *ar
 	struct channel *c = channelmgr_channel_by_id(cm_ctx->cm, cm_ctx->channel_id);
 	cm_ctx->eof = true;
 	if (c) {
+		channel_set_ctx(c, NULL);
 		if (channel_get_interactive(c)) {
 			channel_send_close_request(c);
-			free(cm_ctx);
 		} else {
 			channel_set_eof(c);
 		}
 	}
+	free(cm_ctx);
 }
 
 static void process_channel_read_cb(struct process *p, struct buffer_queue *queue, void *arg)
