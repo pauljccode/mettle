@@ -1,0 +1,93 @@
+name: Validate process channel lifetime
+
+permissions:
+  contents: read
+
+on:
+  push:
+    branches:
+      - ci/process-channel-lifetime-acceptance
+
+jobs:
+  acceptance:
+    name: Intel macOS Mettle acceptance
+    runs-on: macos-15-intel
+    timeout-minutes: 60
+
+    env:
+      BUNDLE_WITHOUT: "coverage development"
+      FRAMEWORK_COMMIT: 5e598d5233bebecef2a44904a286769d83d31d12
+      HOST_RUNNER_IMAGE: macos-15-intel
+      METTLE_COMMIT: 5545d6dd3541bd218bb2c18caa3983b30531c28b
+      RAILS_ENV: test
+      SESSION: meterpreter/mettle
+
+    steps:
+      - name: Checkout fixed Mettle commit
+        uses: actions/checkout@v4
+        with:
+          repository: pauljccode/mettle
+          path: mettle
+          ref: ${{ env.METTLE_COMMIT }}
+          fetch-depth: 0
+
+      - name: Verify Mettle commit
+        working-directory: mettle
+        run: test "$(git rev-parse HEAD)" = "$METTLE_COMMIT"
+
+      - name: Get Mettle version
+        working-directory: mettle
+        run: echo "METTLE_VERSION=$(ruby -ne "puts Regexp.last_match(1) if /VERSION\s+=\s+'([^']+)'/" lib/metasploit_payloads/mettle/version.rb)" | tee -a "$GITHUB_ENV"
+
+      - name: Prepare development gem version
+        working-directory: mettle
+        run: ruby -pi.bak -e "gsub(/${{ env.METTLE_VERSION }}/, '${{ env.METTLE_VERSION }}-dev')" lib/metasploit_payloads/mettle/version.rb
+
+      - name: Compile Intel macOS Mettle payloads
+        working-directory: mettle
+        run: |
+          make TARGET=x86_64-apple-darwin
+          rake build
+
+      - name: Checkout Framework failure commit
+        uses: actions/checkout@v4
+        with:
+          repository: rapid7/metasploit-framework
+          path: metasploit-framework
+          ref: ${{ env.FRAMEWORK_COMMIT }}
+
+      - name: Verify Framework commit
+        working-directory: metasploit-framework
+        run: test "$(git rev-parse HEAD)" = "$FRAMEWORK_COMMIT"
+
+      - name: Setup Ruby
+        uses: ruby/setup-ruby@eaecf785f6a34567a6d97f686bbb7bccc1ac1e5c
+        with:
+          ruby-version: '3.4'
+          bundler-cache: true
+          cache-version: mettle-process-channel-lifetime-v1
+          working-directory: metasploit-framework
+
+      - name: Install fixed Mettle gem
+        working-directory: metasploit-framework
+        run: |
+          cp ../mettle/pkg/metasploit_payloads-mettle-${METTLE_VERSION}.pre.dev.gem .
+          bundle exec gem install metasploit_payloads-mettle-${METTLE_VERSION}.pre.dev.gem
+          ruby -pi.bak -e "gsub(/'metasploit_payloads-mettle', '.*'/, '\\'metasploit_payloads-mettle\\', \\'${METTLE_VERSION}.pre.dev\\'')" metasploit-framework.gemspec
+          bundle config unset deployment
+          bundle update metasploit_payloads-mettle
+          bundle install --deployment
+
+      - name: Run Mettle acceptance suite
+        env:
+          SPEC_HELPER_LOAD_METASPLOIT: false
+          SPEC_OPTS: "--tag acceptance --require acceptance_spec_helper.rb --color --format documentation --format AllureRspec::RSpecFormatter"
+        working-directory: metasploit-framework
+        run: bundle exec rspec spec/acceptance/meterpreter_spec.rb
+
+      - name: Archive acceptance results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: mettle-process-channel-lifetime-${{ github.run_attempt }}
+          path: metasploit-framework/tmp/allure-raw-data
