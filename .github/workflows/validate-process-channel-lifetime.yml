@@ -1,4 +1,4 @@
-name: Validate process channel lifetime
+name: Validate process channel lifetime on Linux
 
 permissions:
   contents: read
@@ -10,14 +10,14 @@ on:
 
 jobs:
   acceptance:
-    name: Intel macOS Mettle acceptance
-    runs-on: macos-15-intel
+    name: Linux Mettle acceptance
+    runs-on: ubuntu-latest
     timeout-minutes: 100
 
     env:
       BUNDLE_WITHOUT: "coverage development"
       FRAMEWORK_COMMIT: 5e598d5233bebecef2a44904a286769d83d31d12
-      HOST_RUNNER_IMAGE: macos-15-intel
+      HOST_RUNNER_IMAGE: ubuntu-latest
       METTLE_COMMIT: e6cf0c972d13ad2d81659927d10ff14757300321
       RAILS_ENV: test
       SESSION: meterpreter/mettle
@@ -43,10 +43,10 @@ jobs:
         working-directory: mettle
         run: ruby -pi.bak -e "gsub(/${{ env.METTLE_VERSION }}/, '${{ env.METTLE_VERSION }}-dev')" lib/metasploit_payloads/mettle/version.rb
 
-      - name: Compile Intel macOS Mettle payloads
+      - name: Compile Linux Mettle payloads
         working-directory: mettle
         run: |
-          make TARGET=x86_64-apple-darwin
+          docker run --rm=true --tty --volume=$(pwd):/mettle --workdir=/mettle rapid7/build:mettle rake mettle:build mettle:check
           rake build
 
       - name: Checkout Framework failure commit
