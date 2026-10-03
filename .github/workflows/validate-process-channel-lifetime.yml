@@ -12,13 +12,13 @@ jobs:
   acceptance:
     name: Intel macOS Mettle acceptance
     runs-on: macos-15-intel
-    timeout-minutes: 60
+    timeout-minutes: 100
 
     env:
       BUNDLE_WITHOUT: "coverage development"
       FRAMEWORK_COMMIT: 5e598d5233bebecef2a44904a286769d83d31d12
       HOST_RUNNER_IMAGE: macos-15-intel
-      METTLE_COMMIT: 5545d6dd3541bd218bb2c18caa3983b30531c28b
+      METTLE_COMMIT: e6cf0c972d13ad2d81659927d10ff14757300321
       RAILS_ENV: test
       SESSION: meterpreter/mettle
 
@@ -61,6 +61,8 @@ jobs:
         run: test "$(git rev-parse HEAD)" = "$FRAMEWORK_COMMIT"
 
       - name: Setup Ruby
+        env:
+          PKG_CONFIG_PATH: /usr/local/opt/libpq/lib/pkgconfig
         uses: ruby/setup-ruby@eaecf785f6a34567a6d97f686bbb7bccc1ac1e5c
         with:
           ruby-version: '3.4'
@@ -84,6 +86,19 @@ jobs:
           SPEC_OPTS: "--tag acceptance --require acceptance_spec_helper.rb --color --format documentation --format AllureRspec::RSpecFormatter"
         working-directory: metasploit-framework
         run: bundle exec rspec spec/acceptance/meterpreter_spec.rb
+
+      - name: Repeat process-channel regression
+        env:
+          SESSION_MODULE_TEST: post/test/cmd_exec
+          SPEC_HELPER_LOAD_METASPLOIT: false
+          SPEC_OPTS: "--tag acceptance --require acceptance_spec_helper.rb --color --format documentation --format AllureRspec::RSpecFormatter"
+        working-directory: metasploit-framework
+        run: |
+          for iteration in {1..10}; do
+            echo "Focused iteration ${iteration}/10"
+            bundle exec rspec spec/acceptance/meterpreter_spec.rb \
+              --example '"osx/x64/meterpreter_reverse_tcp" payload and passes the "post/test/cmd_exec" tests'
+          done
 
       - name: Archive acceptance results
         if: always()
