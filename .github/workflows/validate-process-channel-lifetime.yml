@@ -1,4 +1,4 @@
-name: Validate process channel lifetime on Linux
+name: Validate process channel lifetime
 
 permissions:
   contents: read
@@ -10,20 +10,27 @@ on:
 
 jobs:
   acceptance:
-    name: Linux Mettle acceptance
-    runs-on: ubuntu-latest
+    name: ${{ matrix.os }} Mettle acceptance
+    strategy:
+      fail-fast: false
+      matrix:
+        os:
+          - macos-15-intel
+          - ubuntu-latest
+    runs-on: ${{ matrix.os }}
     timeout-minutes: 100
 
     env:
       BUNDLE_WITHOUT: "coverage development"
       FRAMEWORK_COMMIT: 5e598d5233bebecef2a44904a286769d83d31d12
-      HOST_RUNNER_IMAGE: ubuntu-latest
-      METTLE_COMMIT: e6cf0c972d13ad2d81659927d10ff14757300321
+      HOST_RUNNER_IMAGE: ${{ matrix.os }}
+      METTLE_COMMIT: 837ab20a708256e4b1d8cba6523324c899619130
       RAILS_ENV: test
       SESSION: meterpreter/mettle
 
     steps:
       - name: Install system dependencies
+        if: runner.os == 'Linux'
         run: sudo apt-get -y --no-install-recommends install libpcap-dev graphviz
 
       - name: Checkout fixed Mettle commit
@@ -47,9 +54,17 @@ jobs:
         run: ruby -pi.bak -e "gsub(/${{ env.METTLE_VERSION }}/, '${{ env.METTLE_VERSION }}-dev')" lib/metasploit_payloads/mettle/version.rb
 
       - name: Compile Linux Mettle payloads
+        if: runner.os == 'Linux'
         working-directory: mettle
         run: |
           docker run --rm=true --tty --volume=$(pwd):/mettle --workdir=/mettle rapid7/build:mettle rake mettle:build mettle:check
+          rake build
+
+      - name: Compile Intel macOS Mettle payloads
+        if: runner.os == 'macOS'
+        working-directory: mettle
+        run: |
+          make TARGET=x86_64-apple-darwin
           rake build
 
       - name: Checkout Framework failure commit
