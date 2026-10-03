@@ -18,7 +18,7 @@ jobs:
           - os: macos-15-intel
             focused_payload: osx/x64/meterpreter_reverse_tcp
           - os: ubuntu-latest
-            focused_payload: linux/x64/meterpreter_reverse_tcp
+            focused_payload: linux/x64/meterpreter/reverse_tcp
     runs-on: ${{ matrix.os }}
     timeout-minutes: 180
 
