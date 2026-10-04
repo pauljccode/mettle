@@ -1,0 +1,28 @@
+name: EIO notification regression
+on:
+  push:
+    branches: [ci/eio-notification-regression]
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  notifications:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-15-intel, macos-15]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          path: candidate
+      - uses: actions/checkout@v4
+        with:
+          repository: rapid7/mettle
+          ref: 4dd76aed028fff0a214564cb4c389947b71a194b
+          path: baseline
+      - name: Reproduce stranded baseline completion
+        run: python3 candidate/.github/ci/check-eio-notifications.py baseline baseline
+      - name: Verify both candidate completions
+        run: python3 candidate/.github/ci/check-eio-notifications.py candidate candidate
